@@ -60,12 +60,15 @@ export function Sidebar({
               key={it.href}
               href={it.href}
               className={clsx(
-                "mb-0.5 flex items-center justify-end gap-3 rounded-xl px-4 py-2.5 text-[14.5px] transition-colors",
+                // RTL: the first child sits on the RIGHT — icon first so it hugs the
+                // right edge with the label to its left, and no justify-end (which
+                // would push the whole row to the left).
+                "mb-0.5 flex items-center gap-3 rounded-xl px-4 py-2.5 text-[14.5px] transition-colors",
                 active ? "bg-white/10 font-bold text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
               )}
             >
-              <span>{it.label}</span>
               <span className={clsx("shrink-0", active ? "text-mint" : "text-white/50")}>{ICONS[it.icon]}</span>
+              <span>{it.label}</span>
             </Link>
           );
         })}
