@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 
 const links = [
-  { href: "#features", label: "יכולות" },
-  { href: "#who", label: "למי מתאים" },
-  { href: "#pricing", label: "מחירים" },
-  { href: "#partners", label: "שותפים" },
+  { href: "/#features", label: "יכולות" },
+  { href: "/#who", label: "למי מתאים" },
+  { href: "/#pricing", label: "מחירים" },
+  { href: "/partners", label: "שותפים" },
 ];
 
 export function Nav() {
@@ -50,7 +50,7 @@ export function Nav() {
             כניסה
           </a>
           <a
-            href="#pricing"
+            href="/signup"
             className="rounded-full bg-brand-700 px-5 py-2.5 text-[15px] font-bold text-white shadow-[0_8px_24px_-8px_rgba(0,122,124,0.6)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
           >
             התחילו עכשיו
