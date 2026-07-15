@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ILS } from "@/lib/types";
+import { MintCard, PlainCard, Stat, Steps } from "@/components/dash/Cards";
 import type { Profile, Subscription, SubStatus } from "@/lib/types";
 
 const PLAN_LABEL: Record<string, string> = {
@@ -13,24 +13,15 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 const SUB_STATUS: Record<SubStatus, { label: string; pill: string }> = {
-  trialing: { label: "בתקופת ניסיון", pill: "bg-amber-50 text-amber-700 ring-amber-200" },
-  active: { label: "פעיל", pill: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  past_due: { label: "ממתין לתשלום", pill: "bg-red-50 text-red-700 ring-red-200" },
-  canceled: { label: "בוטל", pill: "bg-cloud text-mist ring-line" },
+  trialing: { label: "בתקופת ניסיון", pill: "bg-gold/20 text-[#8a5a00]" },
+  active: { label: "פעיל", pill: "bg-mint/30 text-mint-700" },
+  past_due: { label: "ממתין לתשלום", pill: "bg-accent/10 text-accent-600" },
+  canceled: { label: "בוטל", pill: "bg-shell text-mist" },
 };
 
 /** Turn a stored site_url into something safe to put in href. */
 function toHref(url: string) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function StatCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-      <p className="text-[13px] font-semibold text-mist">{title}</p>
-      <div className="mt-2">{children}</div>
-    </div>
-  );
 }
 
 export default async function DashboardPage() {
@@ -39,118 +30,115 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: sub }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single<Profile>(),
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle<Profile>(),
     supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle<Subscription>(),
   ]);
 
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || "שלום";
-  const greeting = profile?.full_name?.trim() ? `שלום, ${firstName} 👋` : "שלום 👋";
-  const siteUrl = profile?.site_url?.trim() || null;
+  const first = (profile?.full_name || user.email || "").split(" ")[0];
   const status = sub ? SUB_STATUS[sub.status] : null;
 
   return (
-    <div className="space-y-8">
-      {/* ── welcome ─────────────────────────────────────────────── */}
-      <header>
-        <h1 className="text-[32px] font-extrabold leading-tight text-ink">{greeting}</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-[30px] font-extrabold text-navy-900">שלום, {first} 👋</h1>
         <p className="mt-1 text-[15px] text-ink-soft">
-          {siteUrl ? (
+          {profile?.site_url ? (
             <>
-              הבוט שלך משויך ל־
-              <a
-                href={toHref(siteUrl)}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-brand-700 hover:underline"
-              >
-                {siteUrl}
-              </a>
+              הבוט שלך משויך ל־<span dir="ltr" className="font-semibold">{profile.site_url}</span>
             </>
           ) : (
-            "זה האזור האישי שלך. כאן תראה את המסלול, הסטטוס והבוט שלך."
+            "כאן תנהלו את הבוט, המסלול והחשבון שלכם."
           )}
         </p>
-      </header>
-
-      {/* ── stats ───────────────────────────────────────────────── */}
-      <div className="grid gap-5 sm:grid-cols-3">
-        <StatCard title="המסלול שלי">
-          {sub ? (
-            <p className="text-[22px] font-extrabold text-ink">
-              {PLAN_LABEL[sub.plan] ?? sub.plan}
-            </p>
-          ) : (
-            <p className="text-[15px] font-semibold text-mist">עדיין לא נבחר מסלול</p>
-          )}
-        </StatCard>
-
-        <StatCard title="סטטוס">
-          {status ? (
-            <span
-              className={`inline-flex rounded-full px-3 py-1 text-[14px] font-bold ring-1 ring-inset ${status.pill}`}
-            >
-              {status.label}
-            </span>
-          ) : (
-            <span className="inline-flex rounded-full bg-cloud px-3 py-1 text-[14px] font-bold text-mist ring-1 ring-inset ring-line">
-              —
-            </span>
-          )}
-        </StatCard>
-
-        <StatCard title="תשלום חודשי">
-          <p className="text-[22px] font-extrabold text-ink">
-            {sub && sub.monthly_fee !== null ? ILS(sub.monthly_fee) : "—"}
-          </p>
-        </StatCard>
       </div>
 
-      {/* ── my bot ──────────────────────────────────────────────── */}
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-        <h2 className="text-[18px] font-extrabold text-ink">הבוט שלי</h2>
-        {siteUrl ? (
-          <>
-            <a
-              href={toHref(siteUrl)}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex rounded-full bg-cloud px-4 py-2 text-[15px] font-bold text-brand-700 ring-1 ring-inset ring-line hover:bg-white"
-            >
-              {siteUrl}
-            </a>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">
-              עדכוני התקנה וסטטוס הבוט יופיעו כאן. אם משהו נראה לא מעודכן, אפשר לפנות אלינו ונבדוק.
-            </p>
-          </>
-        ) : (
-          <div className="mt-3 rounded-2xl border border-dashed border-line bg-cloud p-5">
-            <p className="text-[15px] font-semibold text-ink">עוד לא הוספת כתובת אתר</p>
-            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-              ברגע שנדע לאיזה אתר לחבר את הבוט, נוכל להתחיל בהתקנה. עדכוני הסטטוס יופיעו כאן.
-            </p>
-          </div>
-        )}
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <MintCard
+          title="המנוי שלי"
+          subtitle={sub ? "פרטי המסלול הנוכחי" : "עדיין לא נבחר מסלול"}
+          footer={
+            <Link href="/dashboard/plans" className="text-[14px] font-bold text-mint-700 hover:underline">
+              {sub ? "שינוי או שדרוג מסלול ←" : "לבחירת מסלול ←"}
+            </Link>
+          }
+        >
+          {sub && status ? (
+            <div className="grid grid-cols-3 items-center gap-4">
+              <div className="text-center">
+                <div className="text-[30px] font-extrabold leading-none text-navy-900">
+                  {PLAN_LABEL[sub.plan] ?? sub.plan}
+                </div>
+                <div className="mt-2 text-[14px] font-semibold text-ink-soft">המסלול שלי</div>
+              </div>
+              <Stat value={Number(sub.monthly_fee ?? 0)} label="תשלום חודשי" hint="כולל מע״מ" money big />
+              <div className="text-center">
+                <span className={`inline-block rounded-full px-3 py-1.5 text-[13px] font-bold ${status.pill}`}>
+                  {status.label}
+                </span>
+                <div className="mt-2 text-[14px] font-semibold text-ink-soft">סטטוס</div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center">
+              <p className="text-[15px] text-ink-soft">עדיין לא בחרתם מסלול.</p>
+              <Link
+                href="/dashboard/plans"
+                className="mt-4 inline-block rounded-full bg-navy px-6 py-2.5 text-[15px] font-bold text-white"
+              >
+                בחירת מסלול
+              </Link>
+            </div>
+          )}
+        </MintCard>
 
-      {/* ── plans ───────────────────────────────────────────────── */}
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-[18px] font-extrabold text-ink">בחירת מסלול</h2>
-            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-              {sub
-                ? "אפשר לשדרג או להחליף מסלול בכל שלב."
-                : "בחר את המסלול שמתאים לך כדי להפעיל את הבוט."}
+        <Steps
+          title="איך מתחילים"
+          steps={[
+            <>
+              בוחרים מסלול שמתאים לכם — אפשר להתחיל מ-<b>Spark</b> ולשלם רק לפי שיחות.
+            </>,
+            <>אנחנו מקימים ומחברים את הבוט לאתר שלכם ולמערכות שלכם.</>,
+            <>הבוט מתחיל לענות ללקוחות וללכוד לידים — 24/7. 🚀</>,
+          ]}
+        />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <PlainCard title="הבוט שלי" subtitle="סטטוס ההטמעה">
+          {profile?.site_url ? (
+            <>
+              <a
+                href={toHref(profile.site_url)}
+                target="_blank"
+                rel="noreferrer"
+                dir="ltr"
+                className="text-[16px] font-bold text-navy-900 hover:text-mint-700"
+              >
+                {profile.site_url}
+              </a>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
+                עדכוני התקנה וסטטוס הבוט יופיעו כאן. אם משהו נראה לא מעודכן — פנו אלינו ונבדוק.
+              </p>
+            </>
+          ) : (
+            <p className="text-[14px] text-ink-soft">
+              עדיין לא הוגדרה כתובת אתר. פנו אלינו ונשלים את ההגדרה.
             </p>
-          </div>
+          )}
+        </PlainCard>
+
+        <PlainCard title="רוצים להרוויח מ-Wisply?" subtitle="לבוני אתרים וסוכנויות">
+          <p className="text-[14px] leading-relaxed text-ink-soft">
+            הפנו לקוחות וקבלו עמלה חד-פעמית על ההקמה + עמלה שמתגלגלת כל חודש, כל עוד הלקוח פעיל.
+          </p>
           <Link
-            href="/dashboard/plans"
-            className="rounded-full bg-brand-700 px-5 py-2.5 text-[15px] font-bold text-white hover:bg-brand-900"
+            href="/dashboard/partner"
+            className="mt-4 inline-block rounded-full bg-navy px-6 py-2.5 text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5"
           >
-            בחירת מסלול / שדרוג
+            לתוכנית השותפים
           </Link>
-        </div>
-      </section>
+        </PlainCard>
+      </div>
     </div>
   );
 }

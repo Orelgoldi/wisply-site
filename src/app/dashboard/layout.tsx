@@ -1,43 +1,68 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Logo } from "@/components/Logo";
+import { Sidebar, type NavItem } from "@/components/dash/Sidebar";
 import { SignOutButton } from "@/components/SignOutButton";
-import type { Profile } from "@/lib/types";
+import { computeStats } from "@/lib/partner-data";
+import type { Partner, Profile, Referral } from "@/lib/types";
+import { RATES } from "@/lib/types";
+import { Logo } from "@/components/Logo";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single<Profile>();
+  const [{ data: profile }, { data: partner }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle<Profile>(),
+    supabase.from("partners").select("*").eq("user_id", user.id).maybeSingle<Partner>(),
+  ]);
 
-  const isPartner = profile?.role === "partner";
+  let stats = { earnedMonthly: 0 };
+  if (partner) {
+    const { data } = await supabase.from("referrals").select("*").eq("partner_id", partner.id);
+    stats = computeStats((data as Referral[]) ?? []);
+  }
+
+  const firstName = (profile?.full_name || user.email || "").split(" ")[0] || "שותף";
+
+  const items: NavItem[] = partner
+    ? [
+        { href: "/dashboard", label: "דשבורד", icon: "grid" },
+        { href: "/dashboard/partner", label: "פורטל שותפים", icon: "users" },
+        { href: "/dashboard/plans", label: "מסלולים", icon: "wallet" },
+      ]
+    : [
+        { href: "/dashboard", label: "דשבורד", icon: "grid" },
+        { href: "/dashboard/plans", label: "מסלולים", icon: "wallet" },
+        { href: "/dashboard/partner", label: "הצטרפות כשותף", icon: "bolt" },
+      ];
 
   return (
-    <div className="min-h-screen bg-cloud">
-      <header className="border-b border-line bg-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+    <div className="flex min-h-screen bg-shell" dir="rtl">
+      <Sidebar
+        name={firstName}
+        badge={partner ? RATES[partner.tier].label.toUpperCase() : "WISPLY"}
+        balance={partner ? stats.earnedMonthly : 0}
+        balanceNote={
+          partner
+            ? stats.earnedMonthly > 0
+              ? "רווח חודשי מלקוחות פעילים"
+              : "אין עדיין רווח חודשי מלקוחות פעילים"
+            : "הצטרפו לתוכנית השותפים כדי להתחיל להרוויח"
+        }
+        ctaLabel={partner ? "צרפו לקוח חדש" : "הצטרפות כשותף"}
+        ctaHref="/dashboard/partner"
+        items={items}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 items-center justify-between border-b border-line bg-white px-7">
           <Link href="/"><Logo /></Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/dashboard" className="text-[15px] font-semibold text-ink-soft hover:text-brand-700">
-              האזור שלי
-            </Link>
-            <Link
-              href="/dashboard/partner"
-              className="text-[15px] font-semibold text-ink-soft hover:text-brand-700"
-            >
-              {isPartner ? "פורטל שותפים" : "הצטרפות כשותף"}
-            </Link>
-            <SignOutButton />
-          </nav>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-5 py-10">{children}</main>
+          <SignOutButton />
+        </header>
+        <main className="flex-1 p-7">{children}</main>
+      </div>
     </div>
   );
 }

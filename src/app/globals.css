@@ -16,6 +16,15 @@
   --color-accent-600: #f0603d;
   --color-gold: #ffb020;
 
+  /* App shell (dashboard/portal): deep navy rail + mint accents */
+  --color-navy: #1b2a5e;
+  --color-navy-700: #223472;
+  --color-navy-900: #131f45;
+  --color-mint: #5fe3cd;
+  --color-mint-300: #8df0e0;
+  --color-mint-700: #12b39a;
+  --color-shell: #f0f2f5;       /* app background behind the cards */
+
   --font-sans: var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
 
   --radius: 16px;

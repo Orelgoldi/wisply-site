@@ -1,22 +1,21 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { CopyField } from "./CopyField";
 import { joinPartner, requestCertification } from "./actions";
+import { CopyField } from "./CopyField";
 import { siteUrl } from "@/lib/site";
+import { getPartnerContext, computeStats, earningsByMonth } from "@/lib/partner-data";
+import { MintCard, PlainCard, Stat, Steps, EarningsChart } from "@/components/dash/Cards";
 import { RATES, STATUS_LABEL, ILS } from "@/lib/types";
-import type { Partner, Referral, ReferralStatus } from "@/lib/types";
+import type { ReferralStatus } from "@/lib/types";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 const STATUS_PILL: Record<ReferralStatus, string> = {
-  lead: "bg-cloud text-ink-soft",
-  signed: "bg-gold/15 text-ink",
-  active: "bg-brand/12 text-brand-700",
-  churned: "bg-mist/15 text-mist",
+  lead: "bg-shell text-ink-soft",
+  signed: "bg-gold/20 text-[#8a5a00]",
+  active: "bg-mint/30 text-mint-700",
+  churned: "bg-accent/10 text-accent-600",
 };
-
-const dateHe = (iso: string) =>
-  new Date(iso).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 export default async function PartnerPage({
   searchParams,
@@ -24,306 +23,210 @@ export default async function PartnerPage({
   searchParams: Promise<{ err?: string }>;
 }) {
   const { err } = await searchParams;
+  const ctx = await getPartnerContext();
+  if (!ctx) redirect("/login");
+  const { partner, referrals } = ctx;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // ── Not a partner yet → join screen ──
+  if (!partner) {
+    async function join() {
+      "use server";
+      const r = await joinPartner();
+      if (r) redirect(`/dashboard/partner?err=${encodeURIComponent(r.error)}`);
+    }
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PlainCard
+          title="הצטרפו לתוכנית השותפים"
+          subtitle="הרוויחו על כל לקוח שתביאו — גם חד-פעמית וגם כל חודש"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["referrer", "certified"] as const).map((t) => (
+              <div key={t} className="rounded-2xl border border-line p-5">
+                <div className="text-[16px] font-extrabold text-navy-900">{RATES[t].label}</div>
+                <div className="mt-3 flex gap-6">
+                  <div>
+                    <div className="text-2xl font-extrabold text-mint-700">{pct(RATES[t].setup)}</div>
+                    <div className="text-[12px] text-mist">מההקמה</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-extrabold text-mint-700">{pct(RATES[t].monthly)}</div>
+                    <div className="text-[12px] text-mist">מהמנוי / חודש</div>
+                  </div>
+                </div>
+                <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">
+                  {t === "referrer"
+                    ? "אתם מפנים, אנחנו מקימים ומתמכים. אפס עבודה מצדכם."
+                    : "אתם מקימים ומחברים בעצמכם — עמלה כפולה. דורש הסמכה."}
+                </p>
+              </div>
+            ))}
+          </div>
+          {err && <p className="mt-4 text-[14px] font-semibold text-accent">{err}</p>}
+          <form action={join}>
+            <button className="mt-6 w-full rounded-full bg-navy py-3.5 text-[16px] font-bold text-white transition-transform hover:-translate-y-0.5">
+              הצטרפות חינם
+            </button>
+          </form>
+        </PlainCard>
+      </div>
+    );
+  }
 
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle<Partner>();
-
-  if (!partner) return <JoinScreen error={err} />;
-
-  const { data } = await supabase
-    .from("referrals")
-    .select("*")
-    .eq("partner_id", partner.id)
-    .order("created_at", { ascending: false });
-  const referrals: Referral[] = data ?? [];
-
-  const active = referrals.filter((r) => r.status === "active");
-  const setupTotal = referrals.reduce((sum, r) => sum + Number(r.commission_setup ?? 0), 0);
-  const monthlyTotal = active.reduce((sum, r) => sum + Number(r.commission_monthly ?? 0), 0);
-
+  // ── Partner portal ──
+  const stats = computeStats(referrals);
   const rate = RATES[partner.tier];
-  const site = siteUrl();
-  const refLink = `${site}/signup?ref=${partner.ref_code}`;
+  const refLink = `${siteUrl()}/signup?ref=${partner.ref_code}`;
 
-  async function requestUpgrade() {
+  async function upgrade() {
     "use server";
-    const result = await requestCertification();
-    if (result) redirect(`/dashboard/partner?err=${encodeURIComponent(result.error)}`);
+    const r = await requestCertification();
+    if (r) redirect(`/dashboard/partner?err=${encodeURIComponent(r.error)}`);
   }
 
   return (
-    <div className="space-y-8">
-      {/* header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-ink">פורטל שותפים</h1>
-          <p className="mt-1.5 text-[15px] text-ink-soft">
-            הלינק, הקופון והעמלות שלכם — הכל כאן.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-line bg-white px-5 py-3 shadow-[var(--shadow-card)]">
-          <div className="text-[15px] font-extrabold text-ink">{rate.label}</div>
-          <div className="mt-0.5 text-[13px] font-semibold text-brand-700">
-            {pct(rate.setup)} הקמה · {pct(rate.monthly)} מנוי
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <MintCard
+          title="הכסף שלי"
+          subtitle={`מסלול ${rate.label} · ${pct(rate.setup)} הקמה · ${pct(rate.monthly)} מנוי`}
+          footer={
+            <Link href="#referrals" className="text-[14px] font-bold text-mint-700 hover:underline">
+              להפניות שלי ←
+            </Link>
+          }
+        >
+          <div className="grid grid-cols-3 items-center gap-4">
+            <Stat value={stats.activeClients} label="לקוחות פעילים" />
+            <Stat value={stats.lifetime} label="הרווח שלי" hint="מתחילת השותפות" money big />
+            <Stat
+              value={stats.pendingMonthly}
+              label="כסף ממתין"
+              hint="נסגר וטרם הפך לפעיל"
+              money
+            />
           </div>
-        </div>
+        </MintCard>
+
+        <Steps
+          title="איך זה עובד"
+          steps={[
+            <>
+              שלחו ללקוחות שלכם את <b>לינק ההפניה האישי</b> שלכם, או תנו להם את הקופון.
+            </>,
+            <>כשהלקוח נרשם ובוחר מסלול — ההפניה נרשמת אליכם אוטומטית ותופיע כאן.</>,
+            <>כשהלקוח הופך לפעיל — העמלה החודשית מתחילה להתגלגל אליכם. ובום 💥</>,
+          ]}
+        />
       </div>
 
-      {err && <ErrorNote>{err}</ErrorNote>}
-
-      {/* link + coupon */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-          <CopyField label="לינק ההפניה שלי" value={refLink} />
-          <p className="mt-3 text-[13.5px] leading-relaxed text-mist">
-            כל מי שנרשם דרך הלינק הזה נרשם אליכם אוטומטית.
-          </p>
-        </div>
-        <div className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-          <CopyField label="קופון ההנחה שלי" value={partner.coupon_code} />
-          <p className="mt-3 text-[13.5px] leading-relaxed text-mist">
-            {partner.coupon_percent}% הנחה ללקוח — בלי לגעת בעמלה שלכם.
-          </p>
-        </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <PlainCard title="לינק ההפניה שלי" subtitle="כל מי שנרשם דרכו נרשם אליכם אוטומטית">
+          <CopyField label="" value={refLink} />
+        </PlainCard>
+        <PlainCard
+          title="קופון ההנחה שלי"
+          subtitle={`${partner.coupon_percent}% הנחה ללקוח — בלי לגעת בעמלה שלכם`}
+        >
+          <CopyField label="" value={partner.coupon_code} />
+        </PlainCard>
       </div>
 
-      {/* earnings */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="הפניות" value={String(referrals.length)} />
-        <Stat label="פעילים" value={String(active.length)} />
-        <Stat label="עמלות הקמה" value={ILS(setupTotal)} accent />
-        <Stat label="עמלה חודשית מתגלגלת" value={ILS(monthlyTotal)} suffix="/חודש" accent />
-      </div>
+      <PlainCard title="הרווח שלי" subtitle="ב-6 החודשים האחרונים">
+        <EarningsChart data={earningsByMonth(referrals)} />
+      </PlainCard>
 
-      {/* referrals table */}
-      <div className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-        <h2 className="text-xl font-extrabold text-ink">ההפניות שלי</h2>
-        {referrals.length === 0 ? (
-          <p className="mt-6 rounded-2xl border border-dashed border-line bg-cloud px-5 py-10 text-center text-[15px] text-ink-soft">
-            עדיין אין הפניות — שתפו את הלינק שלכם כדי להתחיל.
-          </p>
-        ) : (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[720px] text-[14px]">
-              <thead>
-                <tr className="text-mist">
-                  <th className="py-2 text-right font-semibold">לקוח</th>
-                  <th className="py-2 text-right font-semibold">סטטוס</th>
-                  <th className="py-2 text-right font-semibold">מסלול</th>
-                  <th className="py-2 text-right font-semibold">עמלת הקמה</th>
-                  <th className="py-2 text-right font-semibold">עמלה חודשית</th>
-                  <th className="py-2 text-right font-semibold">תאריך</th>
-                </tr>
-              </thead>
-              <tbody>
-                {referrals.map((r) => (
-                  <tr key={r.id} className="border-t border-line align-middle">
-                    <td className="py-3.5 pl-4">
-                      <div className="font-semibold text-ink">{r.client_name ?? "—"}</div>
-                      {r.client_site && (
-                        <div dir="ltr" className="text-right text-[13px] text-mist">
-                          {r.client_site}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 pl-4">
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-[12.5px] font-bold ${STATUS_PILL[r.status]}`}
-                      >
-                        {STATUS_LABEL[r.status]}
-                      </span>
-                    </td>
-                    <td className="py-3.5 pl-4 text-ink-soft">{r.plan ?? "—"}</td>
-                    <td className="py-3.5 pl-4 font-bold text-brand-700">
-                      {ILS(Number(r.commission_setup ?? 0))}
-                    </td>
-                    <td className="py-3.5 pl-4 font-bold text-brand-700">
-                      {ILS(Number(r.commission_monthly ?? 0))}
-                    </td>
-                    <td className="py-3.5 text-ink-soft">{dateHe(r.created_at)}</td>
+      <div id="referrals">
+        <PlainCard title="ההפניות שלי" subtitle={`${stats.referrals} סה״כ`}>
+          {referrals.length === 0 ? (
+            <p className="py-6 text-center text-[14px] text-mist">
+              עדיין אין הפניות — שתפו את הלינק שלכם כדי להתחיל.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[14px]">
+                <thead>
+                  <tr className="text-[12.5px] text-mist">
+                    {["לקוח", "סטטוס", "מסלול", "עמלת הקמה", "עמלה חודשית", "תאריך"].map((h) => (
+                      <th key={h} className="px-2 py-2 text-right font-semibold">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {referrals.map((r) => (
+                    <tr key={r.id} className="border-t border-line">
+                      <td className="px-2 py-3">
+                        <div className="font-bold text-navy-900">{r.client_name || "—"}</div>
+                        <div className="text-[12px] text-mist" dir="ltr">
+                          {r.client_site || ""}
+                        </div>
+                      </td>
+                      <td className="px-2 py-3">
+                        <span className={`inline-block rounded-full px-2.5 py-1 text-[12px] font-bold ${STATUS_PILL[r.status]}`}>
+                          {STATUS_LABEL[r.status]}
+                        </span>
+                      </td>
+                      <td className="px-2 py-3 text-ink-soft">{r.plan || "—"}</td>
+                      <td className="px-2 py-3 font-semibold">{ILS(Number(r.commission_setup ?? 0))}</td>
+                      <td className="px-2 py-3 font-bold text-mint-700">
+                        {ILS(Number(r.commission_monthly ?? 0))}
+                      </td>
+                      <td className="px-2 py-3 text-mist">
+                        {new Date(r.created_at).toLocaleDateString("he-IL")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {stats.pendingMonthly > 0 && (
+                <p className="mt-4 text-[12.5px] leading-relaxed text-mist">
+                  💡 {ILS(stats.pendingMonthly)}/חודש מופיעים בטבלה אך עדיין לא נספרים ב״הרווח שלי״ — הם
+                  יתחילו להתגלגל כשהלקוח יהפוך לפעיל (כלומר ישלם בפועל).
+                </p>
+              )}
+            </div>
+          )}
+        </PlainCard>
       </div>
 
-      {/* tier block */}
       {partner.tier === "referrer" ? (
-        <div className="rounded-3xl border-2 border-brand bg-white p-8 shadow-[var(--shadow-soft)]">
-          <h2 className="text-xl font-extrabold text-ink">שדרוג לשותף מוסמך</h2>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-soft">
-            שותף מוסמך מקבל עמלה כפולה: {pct(RATES.certified.setup)} מההקמה ו-
-            {pct(RATES.certified.monthly)} מהמנוי כל חודש, במקום {pct(RATES.referrer.setup)} ו-
-            {pct(RATES.referrer.monthly)} היום.
-          </p>
-
-          <div className="mt-6 rounded-2xl border border-line bg-cloud p-5">
-            <div className="text-[14px] font-bold text-ink">מה אתם מתחייבים אליו</div>
-            <ul className="mt-2.5 space-y-2 text-[14.5px] text-ink-soft">
+        <PlainCard title="שדרוג לשותף מוסמך" subtitle="עמלה כפולה — 50% מההקמה ו-25% מהמנוי">
+          <div className="rounded-2xl bg-shell p-5">
+            <div className="text-[14px] font-bold text-navy-900">מה אתם מתחייבים אליו</div>
+            <ul className="mt-2 space-y-1.5 text-[14px] text-ink-soft">
               <li>• להתקין עד {partner.install_quota} אתרים בחודש.</li>
               <li>• לעבור הדרכת הסמכה לפני ההתקנה הראשונה.</li>
             </ul>
           </div>
-
+          {err && <p className="mt-3 text-[14px] font-semibold text-accent">{err}</p>}
           {partner.certification_requested_at ? (
-            <div className="mt-6 rounded-2xl border border-brand/30 bg-brand/5 px-5 py-4">
-              <div className="text-[15px] font-bold text-brand-700">בקשתכם נשלחה ✓</div>
-              <p className="mt-1 text-[14px] text-ink-soft">
-                ניצור איתכם קשר לתיאום הדרכת ההסמכה. עד לאישור, העמלות נשארות במסלול מפנה.
+            <div className="mt-5 rounded-2xl border border-mint bg-mint/10 px-5 py-4">
+              <div className="text-[15px] font-bold text-mint-700">בקשתכם נשלחה ✓</div>
+              <p className="mt-1 text-[13.5px] text-ink-soft">
+                ניצור קשר לתיאום ההדרכה. עד לאישור, העמלות נשארות במסלול מפנה.
               </p>
             </div>
           ) : (
-            <form action={requestUpgrade}>
-              <button
-                type="submit"
-                className="mt-6 rounded-full bg-accent px-7 py-3 text-[15px] font-bold text-white shadow-[0_12px_30px_-10px_rgba(255,122,89,0.7)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
-              >
+            <form action={upgrade}>
+              <button className="mt-5 rounded-full bg-navy px-7 py-3 text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5">
                 שליחת בקשה
               </button>
-              <p className="mt-2.5 text-[13px] text-mist">
-                הבקשה נשלחת לאישורנו — השדרוג נכנס לתוקף אחרי הדרכת ההסמכה.
+              <p className="mt-2 text-[12.5px] text-mist">
+                הבקשה נשלחת לאישורנו — השדרוג נכנס לתוקף אחרי ההדרכה.
               </p>
             </form>
           )}
-        </div>
+        </PlainCard>
       ) : (
-        <div className="rounded-3xl border border-line bg-white p-8 shadow-[var(--shadow-card)]">
-          <h2 className="text-xl font-extrabold text-ink">
-            אתם שותפים מוסמכים · מכסת התקנות: {partner.install_quota} אתרים בחודש
-          </h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            העמלות שלכם: {pct(RATES.certified.setup)} מההקמה ו-{pct(RATES.certified.monthly)} מהמנוי
-            כל חודש, כל עוד הלקוח פעיל.
+        <PlainCard title="אתם שותפים מוסמכים ⭐" subtitle={`מכסת התקנות: ${partner.install_quota} אתרים בחודש`}>
+          <p className="text-[14px] text-ink-soft">
+            העמלות שלכם: {pct(RATES.certified.setup)} מההקמה ו-{pct(RATES.certified.monthly)} מהמנוי, כל חודש
+            שהלקוח פעיל.
           </p>
-        </div>
+        </PlainCard>
       )}
-    </div>
-  );
-}
-
-/* ─── join screen ─────────────────────────────────────────────────────────── */
-
-async function JoinScreen({ error }: { error?: string }) {
-  async function join() {
-    "use server";
-    const result = await joinPartner();
-    if (result) redirect(`/dashboard/partner?err=${encodeURIComponent(result.error)}`);
-  }
-
-  return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
-        הצטרפו לתוכנית השותפים
-      </h1>
-      <p className="mt-3 text-[16px] leading-relaxed text-ink-soft">
-        מקבלים לינק הפניה קבוע וקופון הנחה אישי. כל לקוח שמגיע דרככם מזוכה לכם אוטומטית —
-        עמלה על ההקמה, ועוד סכום שמתגלגל כל חודש שהלקוח פעיל. בלי עלות ובלי התחייבות.
-      </p>
-
-      {error && <div className="mt-6"><ErrorNote>{error}</ErrorNote></div>}
-
-      <div className="mt-8 grid gap-5 md:grid-cols-2">
-        <TierCard tier="referrer" note="אתם מפנים, אנחנו מקימים ומתמכים." />
-        <TierCard
-          tier="certified"
-          note="אתם מקימים ומחברים, אנחנו נותנים מוצר וגב. בכפוף להדרכת הסמכה."
-          featured
-        />
-      </div>
-
-      <form action={join}>
-        <button
-          type="submit"
-          className="mt-8 rounded-full bg-accent px-8 py-3.5 text-[16px] font-bold text-white shadow-[0_12px_30px_-10px_rgba(255,122,89,0.7)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
-        >
-          הצטרפות חינם
-        </button>
-      </form>
-      <p className="mt-3 text-[13.5px] text-mist">
-        מתחילים במסלול מפנה. אפשר לבקש שדרוג לשותף מוסמך בכל שלב מתוך הפורטל.
-      </p>
-    </div>
-  );
-}
-
-function TierCard({
-  tier,
-  note,
-  featured,
-}: {
-  tier: keyof typeof RATES;
-  note: string;
-  featured?: boolean;
-}) {
-  const rate = RATES[tier];
-  return (
-    <div
-      className={
-        featured
-          ? "relative rounded-3xl border-2 border-brand bg-white p-8 shadow-[var(--shadow-soft)]"
-          : "rounded-3xl border border-line bg-white p-8 shadow-[var(--shadow-card)]"
-      }
-    >
-      {featured && (
-        <div className="absolute -top-3 right-8 rounded-full bg-brand-700 px-3 py-1 text-[11px] font-bold text-white">
-          הכי משתלם
-        </div>
-      )}
-      <h3 className="text-xl font-extrabold text-ink">{rate.label}</h3>
-      <p className="mt-1 text-[14px] leading-relaxed text-mist">{note}</p>
-      <div className="mt-5 flex gap-6">
-        <div>
-          <div className="grad-text text-3xl font-extrabold">{pct(rate.setup)}</div>
-          <div className="text-[13px] text-mist">מההקמה</div>
-        </div>
-        <div>
-          <div className="grad-text text-3xl font-extrabold">{pct(rate.monthly)}</div>
-          <div className="text-[13px] text-mist">מהמנוי / חודש</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── bits ────────────────────────────────────────────────────────────────── */
-
-function Stat({
-  label,
-  value,
-  suffix,
-  accent,
-}: {
-  label: string;
-  value: string;
-  suffix?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-      <div className="text-[13.5px] font-semibold text-mist">{label}</div>
-      <div className={`mt-2 text-3xl font-extrabold ${accent ? "grad-text" : "text-ink"}`}>
-        {value}
-        {suffix && <span className="text-base font-medium text-mist">{suffix}</span>}
-      </div>
-    </div>
-  );
-}
-
-function ErrorNote({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-accent/30 bg-accent/10 px-5 py-3.5 text-[14.5px] font-semibold text-ink">
-      {children}
     </div>
   );
 }
