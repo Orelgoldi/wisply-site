@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* ---- Wisply design language ---- */
+@theme {
+  --color-ink: #0b1f24;
+  --color-ink-soft: #3f5a60;
+  --color-mist: #6b8b90;
+  --color-cloud: #f4fafa;
+  --color-line: #e2eeee;
+
+  --color-brand: #00b3b0;
+  --color-brand-600: #009a99;
+  --color-brand-700: #007a7c;
+  --color-brand-900: #05494c;
+  --color-accent: #ff7a59;      /* warm coral for CTAs */
+  --color-accent-600: #f0603d;
+  --color-gold: #ffb020;
+
+  --font-sans: var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
+
+  --radius: 16px;
+  --shadow-soft: 0 10px 40px -12px rgba(0, 122, 124, 0.18);
+  --shadow-card: 0 4px 24px -8px rgba(11, 31, 36, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+.grad-text {
+  background: linear-gradient(100deg, var(--color-brand) 0%, var(--color-brand-700) 60%, #0a6f86 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-gradient { background: linear-gradient(135deg, #00c2bf 0%, #007a7c 100%); }
+
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dotgrid {
+  background-image: radial-gradient(circle, rgba(0,122,124,0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+::selection { background: rgba(0, 179, 176, 0.22); }
