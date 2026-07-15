@@ -29,13 +29,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const items: NavItem[] = partner
     ? [
         { href: "/dashboard", label: "דשבורד", icon: "grid" },
+        { href: "/dashboard/license", label: "הרישיון שלי", icon: "bolt" },
         { href: "/dashboard/partner", label: "פורטל שותפים", icon: "users" },
         { href: "/dashboard/plans", label: "מסלולים", icon: "wallet" },
       ]
     : [
         { href: "/dashboard", label: "דשבורד", icon: "grid" },
+        { href: "/dashboard/license", label: "הרישיון שלי", icon: "bolt" },
         { href: "/dashboard/plans", label: "מסלולים", icon: "wallet" },
-        { href: "/dashboard/partner", label: "הצטרפות כשותף", icon: "bolt" },
+        // `bolt` now belongs to the licence item, so the partner CTA takes `users`.
+        { href: "/dashboard/partner", label: "הצטרפות כשותף", icon: "users" },
       ];
 
   return (
