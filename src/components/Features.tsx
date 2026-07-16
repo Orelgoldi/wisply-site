@@ -49,6 +49,12 @@ const features: Feature[] = [
     desc: "אנחנו מתקינים, מאמנים, מעצבים ומחברים. אתם רק מקבלים לידים — Done-for-you.",
     badge: "שירות מלא",
   },
+  {
+    icon: <IconWordpress />,
+    title: "מותאם לוורדפרס",
+    desc: "מותקן כתוסף וורדפרס, עם עדכונים אוטומטיים מתוך מסך הניהול. תמיכה בפלטפורמות נוספות בהמשך.",
+    badge: "WordPress",
+  },
 ];
 
 export function Features() {
@@ -105,3 +111,4 @@ function IconGlobe() { return <svg width="22" height="22" viewBox="0 0 24 24" {.
 function IconBell() { return <svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.5 21a2 2 0 0 0 3 0" /></svg>; }
 function IconChart() { return <svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M3 3v18h18M8 14v4M13 10v8M18 6v12" /></svg>; }
 function IconRocket() { return <svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M5 13c-1.5 1.5-2 5-2 5s3.5-.5 5-2M12 15l-3-3a10 10 0 0 1 8-9c1 3 0 6-3 9ZM15 9a1 1 0 1 0 0-.01" /></svg>; }
+function IconWordpress() { return <svg width="22" height="22" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="9.5" /><path d="M3.2 9.5 8 20.5M9.5 8.3 13.2 20 15.7 12M8 8.2h3M14 8.2h2.5c1.4 0 1.9 2 1 3.8L15.7 12" /></svg>; }
