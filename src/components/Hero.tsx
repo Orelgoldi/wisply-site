@@ -36,7 +36,7 @@ export function Hero() {
         >
           <span className="grad-text">עונה. משכנע.</span>
           <br />
-          לוכד לקוחות 24/7.
+          משיג לקוחות 24/7.
         </motion.h1>
 
         <motion.p
