@@ -69,6 +69,11 @@ export async function createClearingPage(input: CreateClearingInput): Promise<Cr
   type Resp = {
     ClearingRedirectUrl?: string;
     PaymentId?: string;
+    // The real PaymentId is allocated at request time and returned here, NOT in the
+    // top-level PaymentId (which is null at creation). Same id appears in the clearing
+    // log after payment — so storing it now is how we bind the eventual charge to
+    // THIS order, soundly, without trusting the public callback body.
+    OpenInfo?: { Key: string; Value: string }[];
     Errors?: unknown[];
   };
 
@@ -95,7 +100,13 @@ export async function createClearingPage(input: CreateClearingInput): Promise<Cr
   if (!data?.ClearingRedirectUrl || (data.Errors && data.Errors.length)) {
     return { ok: false, errors: data?.Errors, message: "יצירת דף התשלום נכשלה" };
   }
-  return { ok: true, redirectUrl: data.ClearingRedirectUrl, paymentId: data.PaymentId };
+  const paymentId = data.OpenInfo?.find((o) => o.Key === "PaymentId")?.Value;
+  // No PaymentId means we'd have nothing to bind the eventual charge to — refuse
+  // rather than send the customer to pay for an order we couldn't fulfil safely.
+  if (!paymentId) {
+    return { ok: false, message: "יצירת דף התשלום נכשלה" };
+  }
+  return { ok: true, redirectUrl: data.ClearingRedirectUrl, paymentId };
 }
 
 export type ClearingLog = {
@@ -116,6 +127,11 @@ export type VerifiedPayment = {
   orderId: string;
   paymentId: string;
 };
+
+/** Invoice4U's WCF (de)serialises dates as .NET JSON: /Date(<epoch-ms>)/. */
+function dotNetDate(d: Date): string {
+  return `/Date(${d.getTime()})/`;
+}
 
 /** Amounts may come back as "249.00" (string) or 249 (number); normalise, reject junk. */
 function parseAmount(v: unknown): number | null {
@@ -144,8 +160,10 @@ export async function verifyPayment(paymentId: string): Promise<VerifiedPayment 
 
   const logs = await call<ClearingLog[]>("GetClearingLogByParams", {
     searchParams: {
-      FromDate: from.toISOString().slice(0, 19),
-      ToDate: to.toISOString().slice(0, 19),
+      // Invoice4U's WCF wants .NET JSON dates (/Date(ms)/), NOT ISO — an ISO string
+      // makes the endpoint 500. (Caught against QA.)
+      FromDate: dotNetDate(from),
+      ToDate: dotNetDate(to),
       IsSuccess: true,
     },
     token: apiKey(),

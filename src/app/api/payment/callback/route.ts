@@ -6,18 +6,18 @@ export const dynamic = "force-dynamic";
 
 /**
  * Invoice4U server-to-server notification. This endpoint is PUBLIC — anyone can
- * POST to it — so the body is treated as an untrusted hint, never as proof. We
- * take only the OrderIdClientUsage and PaymentId from it, then re-query Invoice4U's
- * clearing log ourselves to confirm the charge happened, for how much, AND that it
- * was made against THIS order (a real charge must not be replayable onto another
- * order of the same price). Only then does anything money-gated run.
+ * POST to it — so the body is an untrusted hint, never proof. We take only the
+ * PaymentId from it, re-query Invoice4U's clearing log ourselves to confirm the
+ * charge succeeded and for how much, then fulfil the order we bound to that
+ * PaymentId at checkout. A charge can't be replayed onto a different order because
+ * a PaymentId matches exactly one order (the one we stored it on), and a stranger's
+ * PaymentId matches none. Only then does anything money-gated run.
  *
  * Status codes are deliberate: 200 means "resolved, do not retry"; 5xx means
  * "we couldn't finish, please retry" — so a genuinely paid order is never left
  * stuck pending because our verify call blipped.
  */
 export async function POST(req: NextRequest) {
-  let orderId = "";
   let paymentId = "";
   try {
     let payload: Record<string, unknown> = {};
@@ -36,13 +36,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    orderId = String(payload.OrderIdClientUsage ?? "").trim();
+    // Only the PaymentId is taken from the body — the order is resolved server-side
+    // from it. The body's OrderIdClientUsage is ignored (untrusted, and anyway the
+    // clearing log doesn't echo it back for us to check against).
     paymentId = String(payload.PaymentId ?? "").trim();
 
-    // Malformed/irrelevant call — nothing to retry.
-    if (!orderId || !paymentId) {
-      console.error("[payment/callback] missing order/payment id", { orderId, paymentId });
-      return NextResponse.json({ ok: true, reason: "missing_ids" });
+    if (!paymentId) {
+      console.error("[payment/callback] missing payment id");
+      return NextResponse.json({ ok: true, reason: "missing_id" });
     }
 
     // INDEPENDENT verification. Throwing here (Invoice4U down) drops to the catch
@@ -57,26 +58,20 @@ export async function POST(req: NextRequest) {
     // give up. A forged callback lands here too and simply gets a 500 with nothing
     // fulfilled.
     if (!v) {
-      console.error("[payment/callback] payment not confirmed yet", { orderId, paymentId });
+      console.error("[payment/callback] payment not confirmed yet", { paymentId });
       return NextResponse.json({ ok: false, reason: "unconfirmed" }, { status: 500 });
     }
     if (!v.isSuccess) {
       return NextResponse.json({ ok: true, reason: "not_success" });
     }
 
-    // Bind the charge to the order it was actually made against, using the order id
-    // FROM OUR VERIFIED re-query — never the client-supplied one. An empty verified
-    // order id means we can't bind, so we refuse (fail closed). This is what stops a
-    // real charge from being replayed onto a different same-price order.
-    if (!v.orderId || v.orderId !== orderId) {
-      console.error("[payment/callback] order binding failed", { claimed: orderId, verified: v.orderId });
-      return NextResponse.json({ ok: true, reason: "order_mismatch" });
-    }
-
-    // Amount must be a real number here; fulfill_payment fails closed on null too.
+    // Bind purely on the PaymentId we stored on the order at checkout — the order id
+    // in the (public) callback body is not trusted or even used. fulfill_payment looks
+    // the order up by this PaymentId; a stranger's/guessed id matches no order of ours,
+    // so a replayed charge can never fulfil anything. (The clearing log doesn't echo
+    // OrderIdClientUsage, so this checkout-time binding is the sound way to do it.)
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("fulfill_payment", {
-      p_order_id: v.orderId,
       p_payment_id: paymentId,
       p_amount: v.amount,
     });
@@ -98,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, reason: res.reason });
   } catch (e) {
     // Transient (verify threw, parse failed mid-flight): 5xx so it retries.
-    console.error("[payment/callback]", { orderId, paymentId, err: String(e) });
+    console.error("[payment/callback]", { paymentId, err: String(e) });
     return NextResponse.json({ ok: false, reason: "transient" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClearingPage } from "@/lib/invoice4u";
 import { siteUrl } from "@/lib/site";
 import { PLAN_FEE } from "@/lib/types";
@@ -58,9 +59,21 @@ export async function POST(req: NextRequest) {
       email: user.email ?? "",
     });
 
-    if (!result.ok || !result.redirectUrl) {
+    if (!result.ok || !result.redirectUrl || !result.paymentId) {
       console.error("[checkout] Invoice4U error:", result.errors);
       return NextResponse.json({ error: "שירות התשלומים לא זמין כרגע." }, { status: 502 });
+    }
+
+    // Bind this order to the PaymentId Invoice4U just allocated. The eventual charge
+    // carries the same id, so the callback can find THIS order by it — no need to
+    // trust the (public) callback body. Service-role, because clients can't write orders.
+    const { error: bindErr } = await createAdminClient()
+      .from("payment_orders")
+      .update({ payment_id: result.paymentId })
+      .eq("id", orderId);
+    if (bindErr) {
+      console.error("[checkout] could not bind payment id:", bindErr);
+      return NextResponse.json({ error: "לא הצלחנו לפתוח תשלום כרגע." }, { status: 500 });
     }
 
     return NextResponse.json({ redirectUrl: result.redirectUrl });

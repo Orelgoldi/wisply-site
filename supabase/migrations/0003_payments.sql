@@ -33,7 +33,9 @@ create table if not exists public.payment_orders (
   plan        text not null,
   amount      numeric not null check ( amount >= 0 ),
   status      text not null default 'pending' check ( status in ('pending','paid','failed') ),
-  payment_id  text,               -- Invoice4U PaymentId, filled on fulfilment
+  payment_id  text,               -- Invoice4U PaymentId, set at CHECKOUT (allocated
+                                  -- by ProcessApiRequestV2); the eventual charge carries
+                                  -- the same id, so we fulfil by matching on it.
   created_at  timestamptz not null default now(),
   paid_at     timestamptz
 );
@@ -44,17 +46,19 @@ create index if not exists payment_orders_user_idx on public.payment_orders(user
 create unique index if not exists payment_orders_payment_uidx
   on public.payment_orders(payment_id) where payment_id is not null;
 
--- Drop the earlier client-amount signature if a pre-fix version ever landed:
--- create-or-replace won't remove a DIFFERENT signature, so the 2-arg form (which
--- trusted a client amount) could otherwise survive and stay callable.
+-- Drop earlier signatures if a pre-fix version ever landed: create-or-replace won't
+-- remove a DIFFERENT signature, so an older form could otherwise survive and stay
+-- callable (the 2-arg create_payment_order trusted a client amount; the old
+-- fulfill_payment bound the order from the untrusted callback body).
 drop function if exists public.create_payment_order( text, numeric );
+drop function if exists public.fulfill_payment( uuid, text, numeric );
 
 -- ─── create_payment_order( plan ) ────────────────────────────────────────────
 -- Called by the logged-in customer before redirecting to the payment page. The
 -- amount is derived server-side from plan_fee() — NOT taken from the client. Only
 -- positive-fee plans are chargeable (spark is free, enterprise is contact-only and
--- rejected here). Reuses a recent pending order for the same (user, plan) so a
--- double-click doesn't mint two independently-payable pages.
+-- rejected here). Each call is its own order; the checkout route then binds it to
+-- the PaymentId Invoice4U allocates, so orders are never reused/rebound.
 create or replace function public.create_payment_order( p_plan text )
 returns uuid
 language plpgsql
@@ -70,15 +74,6 @@ begin
   if v_fee <= 0 then raise exception 'plan is not chargeable'; end if;
   if p_plan = 'enterprise' then raise exception 'enterprise is contact-only'; end if;
 
-  -- Reuse an unpaid order from the last 30 minutes for the same plan.
-  select id into v_id
-    from public.payment_orders
-   where user_id = v_uid and plan = p_plan and status = 'pending'
-     and created_at > now() - interval '30 minutes'
-   order by created_at desc
-   limit 1;
-  if v_id is not null then return v_id; end if;
-
   insert into public.payment_orders ( user_id, plan, amount )
   values ( v_uid, p_plan, v_fee )
   returning id into v_id;
@@ -87,17 +82,18 @@ begin
 end;
 $$;
 
--- ─── fulfill_payment( order_id, payment_id, amount ) ─────────────────────────
--- Server-only. Runs ONLY after /api/payment/callback has re-queried Invoice4U's
--- clearing log, confirmed IsSuccess, and confirmed the log's OrderIdClientUsage
--- matches this order. Every money-gated guarantee is re-checked HERE, because the
--- callback body is public and untrusted:
+-- ─── fulfill_payment( payment_id, amount ) ───────────────────────────────────
+-- Server-only. Runs after /api/payment/callback has re-queried Invoice4U's clearing
+-- log and confirmed IsSuccess. It finds the order by the PaymentId WE stored at
+-- checkout — never by an id from the untrusted callback body — which is what binds
+-- a charge to exactly the order it was created for and makes replay impossible
+-- (a stranger's PaymentId matches no order of ours). Every money guarantee is
+-- re-checked HERE:
 --   * amount fails CLOSED — a null/mismatched amount is a rejection, never a skip.
 --   * idempotent — a duplicate callback for a paid order is a no-op.
---   * the unique index on payment_id blocks the same charge fulfilling two orders.
 -- Mirrors select_plan()'s subscription + partner-commission logic, keyed to the
 -- order's user, and marks the subscription ACTIVE (paid).
-create or replace function public.fulfill_payment( p_order_id uuid, p_payment_id text, p_amount numeric )
+create or replace function public.fulfill_payment( p_payment_id text, p_amount numeric )
 returns jsonb
 language plpgsql
 security definer set search_path = public
@@ -109,7 +105,13 @@ declare
   v_rate    numeric := 0;
   v_partner uuid;
 begin
-  select * into v_order from public.payment_orders where id = p_order_id for update;
+  if p_payment_id is null or p_payment_id = '' then
+    return jsonb_build_object( 'ok', false, 'reason', 'no_payment_id' );
+  end if;
+
+  -- The order is the one we bound to this PaymentId at checkout. A PaymentId that
+  -- belongs to nobody's order (a guessed/stranger's id) matches nothing → rejected.
+  select * into v_order from public.payment_orders where payment_id = p_payment_id for update;
   if not found then
     return jsonb_build_object( 'ok', false, 'reason', 'order_not_found' );
   end if;
@@ -121,19 +123,13 @@ begin
 
   -- Amount fails CLOSED: no verified numeric amount, or a mismatch, is a rejection.
   if p_amount is null or round( p_amount, 2 ) <> round( v_order.amount, 2 ) then
-    update public.payment_orders set status = 'failed' where id = p_order_id;
+    update public.payment_orders set status = 'failed' where id = v_order.id;
     return jsonb_build_object( 'ok', false, 'reason', 'amount_mismatch' );
   end if;
 
-  -- Bind the charge to this order. The unique index makes a replay across a second
-  -- order raise unique_violation, which we translate to a clean rejection.
-  begin
-    update public.payment_orders
-       set status = 'paid', payment_id = p_payment_id, paid_at = now()
-     where id = p_order_id;
-  exception when unique_violation then
-    return jsonb_build_object( 'ok', false, 'reason', 'payment_already_used' );
-  end;
+  update public.payment_orders
+     set status = 'paid', paid_at = now()
+   where id = v_order.id;
 
   -- The referral that brought this user in (if any).
   select r.* into v_ref
@@ -245,5 +241,5 @@ grant execute on function public.plan_fee( text )                     to anon, a
 
 -- fulfil is server-only. Revoke from PUBLIC (not just anon — Postgres grants
 -- EXECUTE to PUBLIC by default), then grant to service_role alone.
-revoke execute on function public.fulfill_payment( uuid, text, numeric ) from anon, authenticated, public;
-grant  execute on function public.fulfill_payment( uuid, text, numeric ) to service_role;
+revoke execute on function public.fulfill_payment( text, numeric ) from anon, authenticated, public;
+grant  execute on function public.fulfill_payment( text, numeric ) to service_role;
