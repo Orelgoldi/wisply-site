@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Subscription } from "@/lib/types";
 import { selectPlan } from "./actions";
+import { CheckoutButton } from "./CheckoutButton";
 
 type Plan = {
   id: string;
@@ -12,6 +13,8 @@ type Plan = {
   note?: string;
   points: string[];
   accent?: boolean;
+  /** Fixed monthly plans go through card checkout; spark/enterprise don't. */
+  paid?: boolean;
 };
 
 /** Mirrors the marketing pricing exactly (src/components/Pricing.tsx). */
@@ -32,6 +35,7 @@ const PLANS: Plan[] = [
     price: "₪99",
     per: "/חודש",
     points: ["500 שיחות", "עברית", "לכידת לידים", "חיבור 1"],
+    paid: true,
   },
   {
     id: "business",
@@ -41,6 +45,7 @@ const PLANS: Plan[] = [
     per: "/חודש",
     points: ["2,000 שיחות", "100 דק׳ קול", "3 שפות", "2 חיבורים"],
     accent: true,
+    paid: true,
   },
   {
     id: "pro",
@@ -49,6 +54,7 @@ const PLANS: Plan[] = [
     price: "₪549",
     per: "/חודש",
     points: ["5,000 שיחות", "300 דק׳ קול", "חיבורים ללא הגבלה", "דוחות מלאים"],
+    paid: true,
   },
   {
     id: "enterprise",
@@ -161,7 +167,20 @@ export default async function PlansPage({
                 >
                   המסלול הנוכחי שלכם
                 </button>
+              ) : p.paid ? (
+                // Fixed monthly plans → card checkout via Invoice4U.
+                <CheckoutButton plan={p.id} accent={p.accent} />
+              ) : p.id === "enterprise" ? (
+                // Custom quote — a contact link, NOT a plan-granting action. Routing
+                // it through select_plan would have handed out a free licence.
+                <a
+                  href="mailto:hello@wisply.io?subject=Wisply Enterprise"
+                  className="block w-full rounded-full bg-brand-700 py-2.5 text-center text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5"
+                >
+                  דברו איתנו
+                </a>
               ) : (
+                // Spark — pay-per-conversation, the one genuinely free-to-select tier.
                 <form action={choose}>
                   <button
                     type="submit"
@@ -181,8 +200,8 @@ export default async function PlansPage({
       <div className="mt-8 rounded-3xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
         <div className="text-[15px] font-bold text-ink">💳 תשלום</div>
         <p className="mt-2 max-w-3xl text-[14px] leading-relaxed text-ink-soft">
-          בשלב זה בחירת מסלול נרשמת אצלנו ונחזור אליכם להשלמת התשלום. סליקה אוטומטית (הוראת קבע +
-          חשבונית) תתווסף בקרוב.
+          התשלום מתבצע בדף סליקה מאובטח, וחשבונית מס נשלחת אוטומטית למייל. מסלול Spark נגבה לפי
+          שיחות, ו-Enterprise מותאם אישית — לשניהם נחזור אליכם להשלמה.
         </p>
       </div>
     </div>

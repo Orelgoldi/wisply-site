@@ -16,6 +16,10 @@ export async function selectPlan(plan: string): Promise<{ error?: string }> {
   const monthly_fee = PLAN_FEE[plan];
   if (monthly_fee === undefined) return { error: "מסלול לא מוכר." };
 
+  // Paid plans must go through card checkout — never granted for free here. The
+  // SQL guard in select_plan() enforces this too; this is the first line.
+  if (monthly_fee > 0) return { error: "המסלול הזה מחייב תשלום — יש לעבור דרך דף הסליקה." };
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "צריך להתחבר כדי לבחור מסלול." };
