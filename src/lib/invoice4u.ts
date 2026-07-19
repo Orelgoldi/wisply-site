@@ -87,6 +87,8 @@ export async function createClearingPage(input: CreateClearingInput): Promise<Cr
       ReturnUrl: input.returnUrl,
       CallBackUrl: input.callbackUrl,
       IsDocCreate: true, // auto-create the tax invoice (חשבונית מס) on success
+      // Docs: "Set IsQaMode: true when testing on QA." Belt-and-braces with the host.
+      IsQaMode: invoice4uEnv() === "qa",
     },
   });
 
