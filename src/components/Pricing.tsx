@@ -4,11 +4,17 @@ import { motion } from "motion/react";
 import { Reveal } from "./Reveal";
 
 const plans = [
-  { name: "Lite", price: "₪99", per: "/חודש", tag: "לעסק קטן", points: ["500 שיחות", "עברית", "לכידת לידים", "חיבור 1"], accent: false },
-  { name: "Business", price: "₪249", per: "/חודש", tag: "הכי נפוץ", points: ["2,000 שיחות", "שיחות קול", "3 שפות", "2 חיבורים"], accent: true },
-  { name: "Pro", price: "₪549", per: "/חודש", tag: "נפח גבוה", points: ["5,000 שיחות", "300 דק׳ קול", "חיבורים ללא הגבלה", "דוחות מלאים"], accent: false },
-  { name: "Enterprise", price: "מ-₪990", per: "/חודש", tag: "ארגונים", points: ["ללא הגבלה", "קול Real-Time", "AI פרימיום", "SLA"], accent: false },
+  { id: "lite", name: "Lite", price: "₪99", per: "/חודש", tag: "לעסק קטן", points: ["500 שיחות", "עברית", "לכידת לידים", "חיבור 1"], accent: false },
+  { id: "business", name: "Business", price: "₪249", per: "/חודש", tag: "הכי נפוץ", points: ["2,000 שיחות", "שיחות קול", "3 שפות", "2 חיבורים"], accent: true },
+  { id: "pro", name: "Pro", price: "₪549", per: "/חודש", tag: "נפח גבוה", points: ["5,000 שיחות", "300 דק׳ קול", "חיבורים ללא הגבלה", "דוחות מלאים"], accent: false },
+  { id: "enterprise", name: "Enterprise", price: "מ-₪990", per: "/חודש", tag: "ארגונים", points: ["ללא הגבלה", "קול Real-Time", "AI פרימיום", "SLA"], accent: false },
 ];
+
+/** Where a plan's CTA goes: paid plans open checkout, enterprise is a contact link. */
+function planCta(id: string): { href: string; label: string } {
+  if (id === "enterprise") return { href: "mailto:hello@wisply.io?subject=Wisply Enterprise", label: "דברו איתנו" };
+  return { href: `/checkout?plan=${id}`, label: "לרכישה" };
+}
 
 export function Pricing() {
   return (
@@ -33,9 +39,17 @@ export function Pricing() {
               <div className="mt-2 text-xl font-extrabold text-ink">Wisply Spark ✨</div>
               <div className="text-[14px] text-ink-soft">משלמים רק כשמדברים — אין שיחות, אין תשלום.</div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-extrabold text-ink">₪1 <span className="text-sm font-medium text-mist">/ שיחה</span></div>
-              <div className="text-[13px] text-mist">₪0 דמי מנוי קבועים</div>
+            <div className="flex flex-col items-center gap-3">
+              <div className="text-center">
+                <div className="text-3xl font-extrabold text-ink">₪1 <span className="text-sm font-medium text-mist">/ שיחה</span></div>
+                <div className="text-[13px] text-mist">₪0 דמי מנוי קבועים</div>
+              </div>
+              <a
+                href="/signup"
+                className="rounded-full bg-brand-700 px-6 py-2 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                התחלה חינם
+              </a>
             </div>
           </div>
         </Reveal>
@@ -71,20 +85,36 @@ export function Pricing() {
                 ))}
               </ul>
               <a
-                href="#pricing"
+                href={planCta(p.id).href}
                 className={`mt-6 block rounded-full py-2.5 text-center text-[15px] font-bold transition-transform hover:-translate-y-0.5 ${
                   p.accent ? "bg-accent text-white" : "bg-cloud text-ink hover:bg-line"
                 }`}
               >
-                בחירה
+                {planCta(p.id).label}
               </a>
             </motion.div>
           ))}
         </div>
 
-        <p className="mt-8 text-center text-[14px] text-mist">
-          הקמה חד-פעמית: <b className="text-ink-soft">Basic ₪690</b> · <b className="text-ink-soft">Plus ₪1,290</b> · Tailor-Made — במחירי השקה 🚀
-        </p>
+        <Reveal delay={0.05} className="mx-auto mt-10 max-w-3xl">
+          <div className="rounded-3xl border border-line bg-white p-7 text-center shadow-[var(--shadow-card)]">
+            <div className="text-[15px] font-bold text-brand-700">הקמה חד-פעמית</div>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+              <span className="text-xl font-extrabold text-ink sm:text-2xl">
+                Basic <span className="text-brand-700">₪690</span>
+              </span>
+              <span className="hidden text-line sm:inline">·</span>
+              <span className="text-xl font-extrabold text-ink sm:text-2xl">
+                Plus <span className="text-brand-700">₪1,290</span>
+              </span>
+              <span className="hidden text-line sm:inline">·</span>
+              <span className="text-xl font-extrabold text-ink sm:text-2xl">
+                Tailor-Made{" "}
+                <span className="text-base font-semibold text-mist">במחירי השקה</span>
+              </span>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );

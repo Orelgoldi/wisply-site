@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
-type Feature = { icon: ReactNode; title: string; desc: string; badge?: string };
+type Feature = { icon: ReactNode; title: string; desc: string };
 
 /* The thesis lives in its own tile (below). These eight are the supporting cast. */
 const features: Feature[] = [
@@ -14,7 +14,6 @@ const features: Feature[] = [
     icon: <IconMic />,
     title: "מדבר ומקשיב בקול",
     desc: "הקראה קולית ושיחות קול דו-כיווניות, כולל מצב Real-Time של דיבור רציף ללא השהיה.",
-    badge: "קול",
   },
   {
     icon: <IconLead />,
@@ -22,7 +21,7 @@ const features: Feature[] = [
     desc: "מזהה עניין, מבקש פרטים עם הסכמה שיווקית תקנית, ושומר כל ליד עם סיכום השיחה המלא.",
   },
   {
-    icon: <IconPlug />,
+    icon: <IconConnect />,
     title: "מתחבר ל-CRM ולדיוור",
     desc: "כל ליד נשלח ישירות ל-CRM, לרשימת דיוור (Brevo/Mailchimp) או לכל מערכת דרך Webhook.",
   },
@@ -45,13 +44,11 @@ const features: Feature[] = [
     icon: <IconWordpress />,
     title: "מותאם לוורדפרס",
     desc: "מותקן כתוסף, עם עדכונים אוטומטיים מתוך מסך הניהול. תמיכה בפלטפורמות נוספות בהמשך.",
-    badge: "WordPress",
   },
   {
-    icon: <IconRocket />,
+    icon: <IconWand />,
     title: "מוקם ומנוהל עבורך",
     desc: "אנחנו מתקינים, מאמנים, מעצבים ומחברים. אתם רק מקבלים לידים — Done-for-you.",
-    badge: "שירות מלא",
   },
 ];
 
@@ -92,10 +89,6 @@ function FeatureThesis() {
       className="brand-gradient relative flex flex-col justify-between overflow-hidden rounded-[28px] p-7 text-white sm:col-span-2 sm:row-span-2 sm:min-h-[22rem]"
     >
       <div className="relative z-10">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-[12.5px] font-bold backdrop-blur">
-          <IconBrain />
-          הליבה
-        </div>
         <h3 className="text-[26px] font-extrabold leading-tight sm:text-[30px]">
           עונה מתוך תוכן האתר.
           <br />
@@ -134,32 +127,146 @@ function FeatureCard({ f, i }: { f: Feature; i: number }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.5, ease: EASE, delay: (i % 4) * 0.06 }}
-      className="group relative flex flex-col rounded-[22px] border border-line bg-white p-5 shadow-[var(--shadow-card)] transition-transform hover:-translate-y-1"
+      className="group relative flex flex-col overflow-hidden rounded-[22px] border border-line bg-white p-5 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-brand/30 hover:shadow-[var(--shadow-soft)]"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-cloud text-brand-700 transition-colors group-hover:bg-brand group-hover:text-white">
-          {f.icon}
-        </span>
-        {f.badge && (
-          <span className="rounded-full bg-cloud px-2.5 py-1 text-[11px] font-bold text-brand-700">
-            {f.badge}
+      {/* A soft brand glow that wakes on hover — depth, kept behind the content. */}
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-brand/5 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
+
+      <div className="relative mb-4">
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-cloud to-white ring-1 ring-line transition-all duration-300 group-hover:ring-brand/30 group-hover:shadow-[0_10px_22px_-10px_rgba(0,179,176,0.5)]">
+          <span className="transition-transform duration-300 will-change-transform group-hover:scale-110">
+            {f.icon}
           </span>
-        )}
+        </span>
       </div>
-      <h3 className="text-[16.5px] font-bold text-ink">{f.title}</h3>
-      <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-soft">{f.desc}</p>
+      <h3 className="relative text-[18.5px] font-bold text-ink">{f.title}</h3>
+      <p className="relative mt-2 text-[15px] leading-relaxed text-ink-soft">{f.desc}</p>
     </motion.div>
   );
 }
 
-/* ---- icons ---- */
-const s = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-function IconBrain() { return <svg width="15" height="15" viewBox="0 0 24 24" {...s}><path d="M12 5a3 3 0 0 0-6 0 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0Zm0 0a3 3 0 0 1 6 0 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 0" /></svg>; }
-function IconMic() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>; }
-function IconLead() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M20 8v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7Z" /><path d="M9 12h6M9 16h4M14 3v4h4" /></svg>; }
-function IconPlug() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8ZM12 16v6" /></svg>; }
-function IconGlobe() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" /></svg>; }
-function IconBell() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.5 21a2 2 0 0 0 3 0" /></svg>; }
-function IconChart() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M3 3v18h18M8 14v4M13 10v8M18 6v12" /></svg>; }
-function IconRocket() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M5 13c-1.5 1.5-2 5-2 5s3.5-.5 5-2M12 15l-3-3a10 10 0 0 1 8-9c1 3 0 6-3 9ZM15 9a1 1 0 1 0 0-.01" /></svg>; }
-function IconWordpress() { return <svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="9.5" /><path d="M3.2 9.5 8 20.5M9.5 8.3 13.2 20 15.7 12M8 8.2h3M14 8.2h2.5c1.4 0 1.9 2 1 3.8L15.7 12" /></svg>; }
+/* ---- duotone illustrated icons ----
+   One visual language shared with the WhoFor illustrations: teal fills, a deep
+   teal outline, and a single coral (or gold) spark per icon. Hand-authored SVG so
+   they stay crisp at any size and identical in style across the set. */
+
+const LIGHT = "#c3ebe8"; // teal fill
+const TEAL = "#00b3b0"; // brand teal detail
+const DARK = "#05494c"; // deep-teal outline
+const CORAL = "#ff7a59"; // warm accent
+const GOLD = "#ffb020"; // spark
+
+type IconProps = { children: ReactNode };
+function Frame({ children }: IconProps) {
+  return (
+    <svg width="34" height="34" viewBox="0 0 40 40" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </svg>
+  );
+}
+
+function IconMic() {
+  return (
+    <Frame>
+      <rect x="15" y="6" width="10" height="18" rx="5" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <path d="M20 10v6" stroke={TEAL} strokeWidth="2" />
+      <path d="M11 19a9 9 0 0 0 18 0" stroke={DARK} strokeWidth="2" />
+      <path d="M20 28v6M16 34h8" stroke={DARK} strokeWidth="2" />
+      <path d="M31 15c1.6 1.6 1.6 6 0 8M34.5 12c3 3.4 3 12 0 15" stroke={CORAL} strokeWidth="2" />
+    </Frame>
+  );
+}
+
+function IconLead() {
+  /* A magnet catching a spark — leads pulled in on their own. */
+  return (
+    <Frame>
+      <path d="M12 9v8a8 8 0 0 0 16 0V9" stroke={DARK} strokeWidth="8" />
+      <path d="M12 9v8a8 8 0 0 0 16 0V9" stroke={LIGHT} strokeWidth="3.4" />
+      <path d="M12 9v3.4M28 9v3.4" stroke={CORAL} strokeWidth="3.4" />
+      <path d="M20 3.5v3.5M16.5 5.5l1.6 1.6M23.5 5.5l-1.6 1.6" stroke={GOLD} strokeWidth="2" />
+    </Frame>
+  );
+}
+
+function IconConnect() {
+  /* Hub-and-spoke — one bot wired into every system. */
+  return (
+    <Frame>
+      <path d="M20 20 11 13M20 20l9-4M20 20l4 9" stroke={DARK} strokeWidth="2" />
+      <circle cx="11" cy="13" r="4" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <circle cx="29" cy="16" r="4" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <circle cx="24" cy="29" r="4" fill={CORAL} stroke={DARK} strokeWidth="2" />
+      <circle cx="20" cy="20" r="5.5" fill={TEAL} stroke={DARK} strokeWidth="2" />
+    </Frame>
+  );
+}
+
+function IconGlobe() {
+  return (
+    <Frame>
+      <circle cx="17" cy="18" r="11" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <path d="M6 18h22" stroke={DARK} strokeWidth="1.6" />
+      <path d="M17 7c4.6 3 4.6 19 0 22c-4.6-3-4.6-19 0-22Z" stroke={DARK} strokeWidth="1.6" />
+      <path
+        d="M25 24.5h8a2.5 2.5 0 0 1 2.5 2.5v3.5A2.5 2.5 0 0 1 33 33h-1v3l-3.5-3H25a2.5 2.5 0 0 1-2.5-2.5V27A2.5 2.5 0 0 1 25 24.5Z"
+        fill={CORAL}
+        stroke={DARK}
+        strokeWidth="2"
+      />
+      <path d="M26.5 28.5h5M26.5 31h3" stroke="#fff" strokeWidth="1.6" />
+    </Frame>
+  );
+}
+
+function IconBell() {
+  /* Proactive outreach — the bubble pops up first, with a live notification. */
+  return (
+    <Frame>
+      <path
+        d="M9 10h18a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4H18l-6 5v-5h-3a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4Z"
+        fill={LIGHT}
+        stroke={DARK}
+        strokeWidth="2"
+      />
+      <circle cx="14" cy="18.5" r="1.7" fill={TEAL} />
+      <circle cx="19" cy="18.5" r="1.7" fill={TEAL} />
+      <circle cx="24" cy="18.5" r="1.7" fill={TEAL} />
+      <circle cx="31" cy="9" r="4.5" fill={CORAL} stroke="#fff" strokeWidth="1.6" />
+    </Frame>
+  );
+}
+
+function IconChart() {
+  return (
+    <Frame>
+      <path d="M11 6h11l7 7v19a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <path d="M22 6v7h7" stroke={DARK} strokeWidth="2" />
+      <path d="M14 29v-3M19 29v-6M24 29v-4" stroke={TEAL} strokeWidth="2.6" />
+      <path d="M13.5 20l4-3.5 3 2 5-4.5" stroke={CORAL} strokeWidth="2" />
+    </Frame>
+  );
+}
+
+function IconWordpress() {
+  return (
+    <Frame>
+      <circle cx="20" cy="20" r="13" fill={LIGHT} stroke={DARK} strokeWidth="2" />
+      <path d="M12 15.5l3.4 10.5 3-8.2 3 8.2 3.4-10.5" stroke={TEAL} strokeWidth="2.4" />
+      <circle cx="20" cy="20" r="13" stroke={DARK} strokeWidth="0" />
+    </Frame>
+  );
+}
+
+function IconWand() {
+  /* Done-for-you — we handle the setup; a wand and a star do the work. */
+  return (
+    <Frame>
+      <path d="M11.5 30.5 25 17" stroke={DARK} strokeWidth="4" />
+      <path d="M11.5 30.5 25 17" stroke={TEAL} strokeWidth="1.8" />
+      <path d="M26.5 9.5 29 14l4.5 2.5L29 19l-2.5 4.5L24 19l-4.5-2.5L24 14Z" fill={GOLD} stroke={DARK} strokeWidth="1.8" />
+      <path d="M11 11v4M9 13h4" stroke={CORAL} strokeWidth="2" />
+      <circle cx="31" cy="27" r="1.7" fill={CORAL} />
+    </Frame>
+  );
+}

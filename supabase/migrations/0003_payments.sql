@@ -164,7 +164,10 @@ begin
   -- Paying is what hands the customer a licence key.
   perform public.issue_license( v_order.user_id, v_order.plan );
 
-  return jsonb_build_object( 'ok', true, 'reason', 'fulfilled' );
+  return jsonb_build_object(
+    'ok', true, 'reason', 'fulfilled',
+    'user_id', v_order.user_id, 'plan', v_order.plan
+  );
 end;
 $$;
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyPayment } from "@/lib/invoice4u";
+import { sendEmail, purchaseThankYouEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -82,12 +84,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "fulfil_error" }, { status: 500 });
     }
 
-    const res = data as { ok?: boolean; reason?: string };
+    const res = data as { ok?: boolean; reason?: string; user_id?: string; plan?: string };
     if (!res?.ok) {
       // A definitive rejection (amount_mismatch, payment_already_used, …) — resolved,
       // don't retry.
       console.error("[payment/callback] fulfil rejected:", res);
       return NextResponse.json({ ok: true, reason: res?.reason ?? "rejected" });
+    }
+
+    // Our branded thank-you email — only on a fresh fulfilment (not a duplicate
+    // callback), and best-effort: a mail hiccup must not fail the callback.
+    if (res.reason === "fulfilled" && res.user_id) {
+      try {
+        const { data: u } = await admin.auth.admin.getUserById(res.user_id);
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", res.user_id)
+          .maybeSingle<{ full_name: string | null }>();
+        const to = u.user?.email;
+        if (to) {
+          const mail = purchaseThankYouEmail({
+            name: profile?.full_name || "",
+            plan: res.plan || "",
+            loginUrl: `${siteUrl()}/login`,
+          });
+          await sendEmail({ to, toName: profile?.full_name || undefined, ...mail });
+        }
+      } catch (mailErr) {
+        console.error("[payment/callback] thank-you email failed:", mailErr);
+      }
     }
 
     return NextResponse.json({ ok: true, reason: res.reason });
