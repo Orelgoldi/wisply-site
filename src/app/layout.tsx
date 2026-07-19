@@ -26,6 +26,24 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} h-full`}>
+      <head>
+        {/* Preload the two Ploni weights above the fold — the ultrabold hero headline
+            (LCP) and the regular body — so they don't flash in the fallback first. */}
+        <link
+          rel="preload"
+          href="/fonts/ploni/ploni-ultrabold-aaa.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/ploni/ploni-regular-aaa.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );

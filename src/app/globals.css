@@ -1,5 +1,50 @@
 @import "tailwindcss";
 
+/* ---- Ploni (Hebrew brand font) ---- */
+/* Only the weights the UI uses (Tailwind normal→extrabold). font-display: swap so
+   text paints immediately in the fallback and re-renders when Ploni arrives. */
+@font-face {
+  font-family: "Ploni";
+  src: url("/fonts/ploni/ploni-regular-aaa.woff2") format("woff2"),
+       url("/fonts/ploni/ploni-regular-aaa.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ploni";
+  src: url("/fonts/ploni/ploni-medium-aaa.woff2") format("woff2"),
+       url("/fonts/ploni/ploni-medium-aaa.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ploni";
+  src: url("/fonts/ploni/ploni-demibold-aaa.woff2") format("woff2"),
+       url("/fonts/ploni/ploni-demibold-aaa.woff") format("woff");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ploni";
+  src: url("/fonts/ploni/ploni-bold-aaa.woff2") format("woff2"),
+       url("/fonts/ploni/ploni-bold-aaa.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ploni";
+  src: url("/fonts/ploni/ploni-ultrabold-aaa.woff2") format("woff2"),
+       url("/fonts/ploni/ploni-ultrabold-aaa.woff") format("woff");
+  /* Ultrabold covers both bold-heavy (800) and the font-extrabold used in headings. */
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ---- Wisply design language ---- */
 @theme {
   --color-ink: #0b1f24;
@@ -25,7 +70,7 @@
   --color-mint-700: #12b39a;
   --color-shell: #f0f2f5;       /* app background behind the cards */
 
-  --font-sans: var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Ploni", var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
 
   --radius: 16px;
   --shadow-soft: 0 10px 40px -12px rgba(0, 122, 124, 0.18);
